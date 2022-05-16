@@ -41,33 +41,32 @@
   (str k "=" v))
 
 (defn influx-tag [k v]
-  (str "," k "=" v))
+  (str "," k "=" v " "))
 
 (defn to-ts [date-time]
   ;; Expects time in the format 2020/02/01,00:05:44  
   (-> (t/local-date-time "yyyy/MM/dd,HH:mm:ss" date-time)
-      (t/zoned-date-time (zone-id "America/Los_Angeles"))
+      (t/zoned-date-time (t/zone-id "America/Los_Angeles"))
       (t/offset-date-time)
       (t/to-millis-from-epoch)))
 
 (comment
+  (str "," "foo" "=" "bar", " ", "x")
 
-  (let [solarrig-token "MEA5zvegPKidKMcei3Qbkmd1vXSsRavZKrLaxEu-iRpFYu7qsP0_NuqdzNgj7_LoJ6DKGSi8Wb3mesJcTicJWw=="
+  (do (let [solarrig-token "tX29J9UkKRntVOnGDPbUJER4MmfONedW5pmuleZ25A27NFQ-gjINdvo1Y7Gp7VZLsySecIE7gcxgux0kH7eRmA=="
         url "http://localhost:8086"
-        org "solar-rig"
-        bucket "solar-rig-bucket"
-        precision WritePrecision/NS
-        metric-writer (fn [] (let [cf (InfluxDBClientFactory/create url (char-array token))]
-                               (.getWriteApiBlocking cf)))
-        append-line (fn [influx-client line] (.writeRecord influx-client bucket org precision line))        
-        ]
-    (with-open [wtr (metric-writer)]
-      (append-line wtr (str "garage-invertor"
-                            (influx-tag "tagKey" "tagValue")
-                            (influx-field "Gen Status" 49725)
-                            (to-ts "2000/02/01,00:05:44")))
+        org "solar-rigs"
+        bucket "samlex-evo-2012"
+        precision WritePrecision/NS]
+    (with-open [ic (InfluxDBClientFactory/create url (char-array solarrig-token))]
+      (let [wtr (.getWriteApiBlocking ic)
+            append-line (fn [line] (.writeRecord wtr bucket org precision line))]
+        (append-line (str "garage-invertor"
+                          (influx-tag "tagKey" "tagValue")
+                          (influx-field "genStatus" (rand 100))
+                          (to-ts "2000/02/02,03:00:52"))))
       )
-    )
+    ))
   
   ;; Date,Time,Gen status,Gen freq,Gen volt,Grid status,Grid freq,Grid volt,Input current,Input VA,Input watt,Output freq,Output volt,Output current,Output VA,Output watt,Battery volt,Battery current,External current,Battery temperature(C),Transformer temperature(C),Bus bar temperature(C),Heat sink temperature(C),Fan speed,Mode,Error code,Charge stage,Event,
   ;; 2000/02/01,00:05:44,49725,000.00,000.43,49727,000.00,000.24,<00.10,<0012,<0012,000.00,000.27,<00.10,<0012,<0012,13.382,0000.0,0000.0,0025.0,0007.9,0010.9,0010.6,0,0,00000,0,
