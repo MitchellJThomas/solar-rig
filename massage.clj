@@ -143,13 +143,10 @@
         org "solar-rigs"
         bucket "samlex-evo-2012"]
     (with-open [ic (InfluxDBClientFactory/create url (char-array solarrig-token))
-                rdr (io/reader "/Users/mthomas/Dev/solar-rig-data/test.csv")]
-      (let [wtr (.getWriteApiBlocking ic)
-            write-point (fn [point]
-                          (println "Writing point" (.toLineProtocol point))
-                          (.writePoint wtr bucket org point)
-                          )]
-        (doseq [point (influxify "a-inverter-sample" (line-seq rdr))]
+                rdr (io/reader "/Users/mthomas/Dev/solar-rig-data/mar-2022.csv")]
+      (let [wtr (.makeWriteApi ic)
+            write-point (fn [point] (.writePoint wtr bucket org point))]
+        (doseq [point (influxify "b-inverter-sample" (line-seq rdr))]
           (write-point point))
         )
       )

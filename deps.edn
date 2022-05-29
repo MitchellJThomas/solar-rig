@@ -1,5 +1,5 @@
 {:deps
- {com.influxdb/influxdb-client-java {:mvn/version "3.1.0"}
+ {com.influxdb/influxdb-client-java {:mvn/version "6.1.0"}
   clojure.java-time/clojure.java-time {:mvn/version "0.3.3"}}
  
  }
