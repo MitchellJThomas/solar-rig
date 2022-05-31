@@ -58,18 +58,29 @@
   (str k "=\"" v "\""))
 
 (defn to-ts [date time]
-  ;; Expects time in the format 2020/02/01 and 00:05:44  
-  (-> (t/local-date-time "yyyy/MM/dd HH:mm:ss" (str date " " time))
+  ;; Expects time in the format 2020/02/01 and 00:05:44
+  (try
+    (-> (t/local-date-time "yyyy/MM/dd HH:mm:ss" (str date " " time))
       (t/zoned-date-time (t/zone-id "America/Los_Angeles"))
       (t/offset-date-time)      
-      (t/to-millis-from-epoch)))
+      (t/to-millis-from-epoch))
+        (catch java.time.format.DateTimeParseException ex
+      (println "Error parsing date '" date "' and time '" time "' exception " ex)
+      (t/instant))))
 
 (defn to-instant [date time]
-  ;; Expects time in the format 2020/02/01 and 00:05:44  
-  (-> (t/local-date-time "yyyy/MM/dd HH:mm:ss" (str date " " time))
+  ;; Expects time in the format 2020/02/01 and 00:05:44
+  (try
+    (-> (t/local-date-time "yyyy/MM/dd HH:mm:ss" (str date " " time))
       (t/zoned-date-time (t/zone-id "America/Los_Angeles"))
       (t/offset-date-time)
-      (t/instant)))
+      (t/instant))
+    (catch Exception ex
+      (println "Error parsing date '" date "' and time '" time "'")
+      ;; (println "Error parsing date '" date "' and time '" time "' exception " ex)
+      (t/instant))
+    )
+  )
 
 (defn floaty [str-float]
   (try
@@ -118,14 +129,34 @@
     ;;            (% "timestamp")) wo-date-time) 
     )
   )
-  
+
+(defn load-rig-data [& {:keys [data-dir]
+                        :or {data-dir "/Users/mthomas/Dev/solar-rig-data/monthly-data"}}]
+  (let [solarrig-token "p-sgt4MZ5lQVHYThnsCD_dyUUr9Fj4hiCwc92njvrFCxvVC3aY5f9SheAxbBZtinbMzp_L7vwhFG4brwRiPajQ=="
+        url "http://localhost:8086"
+        org "solar-rigs"
+        bucket "samlex-evo-2012"
+        measurement "inverter-sample"]
+    (with-open [ic (InfluxDBClientFactory/create url (char-array solarrig-token))]
+      (let [data-files (filter #(.isFile %) (file-seq (io/file data-dir)))
+            wtr (.makeWriteApi ic)
+            write-point (fn [point] (.writePoint wtr bucket org point))]
+        (doseq [csv-file data-files]
+          (with-open [rdr (io/reader csv-file)]
+            (println "Loading file " csv-file " into Influx")
+            (doseq [point (influxify measurement (line-seq rdr))]
+              (write-point point))
+            ))))))
+
+(defn main []
+  (load-rig-data "/Users/mthomas/Dev/solar-rig-data/monthly-data"))
 
 (comment
+  (load-rig-data)
   
-  (str "," "foo" "=" "bar", " ", "x")
   ;; user:solarrig
   ;; password:the usual
-  (let [solarrig-token "q919gL53Udy569RVtLY8K2E6efrBjGuxa17RV-ylRI40puYJLFw_EkkrPyP_TuNkof6vwmAIWpSzeOfcZDz3-Q=="
+  (let [solarrig-token "p-sgt4MZ5lQVHYThnsCD_dyUUr9Fj4hiCwc92njvrFCxvVC3aY5f9SheAxbBZtinbMzp_L7vwhFG4brwRiPajQ=="
         url "http://localhost:8086"
         org "solar-rigs"
         bucket "samlex-evo-2012"
@@ -138,19 +169,7 @@
                           (influx-field "genStatus" (rand 100)) " "
                           (to-ts "2022/05/01" "10:47:02"))))))
     
-  (let [solarrig-token "q919gL53Udy569RVtLY8K2E6efrBjGuxa17RV-ylRI40puYJLFw_EkkrPyP_TuNkof6vwmAIWpSzeOfcZDz3-Q=="
-        url "http://localhost:8086"
-        org "solar-rigs"
-        bucket "samlex-evo-2012"]
-    (with-open [ic (InfluxDBClientFactory/create url (char-array solarrig-token))
-                rdr (io/reader "/Users/mthomas/Dev/solar-rig-data/mar-2022.csv")]
-      (let [wtr (.makeWriteApi ic)
-            write-point (fn [point] (.writePoint wtr bucket org point))]
-        (doseq [point (influxify "b-inverter-sample" (line-seq rdr))]
-          (write-point point))
-        )
-      )
-    )
+  
 
   (def dir "/Users/mthomas/Dev/solar-rig-data/data")
   (concat-files dir "03" "mar-2022.csv")
@@ -163,12 +182,6 @@
               "2021/10/27,04:08:18,49725,000.00,000.39,49727,000.00,000.31,<00.10,<0012,<0012,060.00,120.12,<00.10,<0012,<0012,11.141,0000.0,0000.0,0025.0,0023.0,0021.0,0018.5,0,1,00000,0,",
               "2021/10/27,04:08:19,49725,000.00,000.39,49723,000.00,000.31,<00.10,<0012,<0012,060.00,120.11,<00.10,<0012,<0012,11.141,0000.0,0000.0,0025.0,0023.0,0021.0,0018.5,0,1,00000,0,"])
 
-  (influxify "invertor-sample" (seq lines))
-
-  
-    
-  (with-open [rdr (io/reader "/Users/mthomas/Dev/solar-rig-data/test.csv")]
-    rdr
-    )
+  (influxify "invertor-sample" (seq lines))    
   
   )
