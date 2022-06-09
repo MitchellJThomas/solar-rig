@@ -104,9 +104,9 @@
   [measurement-name csv-line-seq]
   (let [filtered-seq (->> csv-line-seq
                           (filter string?)
-                          (map string/trim)
-                          (remove #(string/starts-with? % "EVO-2212"))
+                          (drop-while #(string/starts-with? % "EVO-2212"))
                           (remove #(string/starts-with? % (str \u0000)))
+                          (map string/trim)
                          )
         column-names (map format-column-name (string/split (first filtered-seq) #";"))
         rows (map #(string/split % #";") (drop 1 filtered-seq))
