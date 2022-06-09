@@ -104,10 +104,12 @@
   [measurement-name csv-line-seq]
   (let [filtered-seq (->> csv-line-seq
                           (filter string?)
-                          (drop-while #(string/starts-with? % "EVO-2212"))
+                          (map string/trim)
+                          (remove #(string/starts-with? % "EVO-2212"))
+                          (remove #(string/starts-with? % (str \u0000)))
                          )
-        column-names (map format-column-name (string/split (string/trim (first filtered-seq)) #";"))
-        rows (map #(string/split (string/trim %) #";") (drop 1 filtered-seq))
+        column-names (map format-column-name (string/split (first filtered-seq) #";"))
+        rows (map #(string/split % #";") (drop 1 filtered-seq))
         cells (for [row rows]
                 (into {} (map #(vector %1 (floaty %2)) column-names row)))
         with-instant (map
@@ -194,9 +196,16 @@
 
   (def data-files (filter #(.isFile %) (file-seq (io/file dir))))
   
-
-  (with-open [rdr (io/reader (first data-files))]    
-    (doall
-     (take 3 (drop-while #(string/starts-with? % "EVO-2212") (line-seq rdr)))))
-  
+  (with-open [rdr (io/reader (io/file "/Users/mthomas/Dev/solar-rig-data/DATALOG/06010609.txt"))]
+    (->>
+     (line-seq rdr)
+     (filter string?)
+     (map string/trim)
+     (remove #(string/starts-with? % "EVO-2212"))
+     (remove #(string/starts-with? % (str \u0000)))
+     (last)
+     
+     )
+    )
+         
   )
