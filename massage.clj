@@ -31,7 +31,6 @@
         (doseq [l (drop drop-count (line-seq rdr))]
           (let [line (-> l
                          (string/trim)
-                         (string/replace ";" ",")
                          (str "\n"))]
             (.append wtr line))
           )
@@ -64,22 +63,22 @@
       (t/zoned-date-time (t/zone-id "America/Los_Angeles"))
       (t/offset-date-time)      
       (t/to-millis-from-epoch))
-        (catch java.time.format.DateTimeParseException ex
+    (catch java.time.format.DateTimeParseException ex
       (println "Error parsing date '" date "' and time '" time "' exception " ex)
       (t/instant))))
 
 (defn to-instant [date time]
   ;; Expects time in the format 2020/02/01 and 00:05:44
-  (try
-    (-> (t/local-date-time "yyyy/MM/dd HH:mm:ss" (str date " " time))
+  (-> (t/local-date-time "yyyy/MM/dd HH:mm:ss" (str date " " time))
       (t/zoned-date-time (t/zone-id "America/Los_Angeles"))
       (t/offset-date-time)
       (t/instant))
-    (catch Exception ex
-      (println "Error parsing date '" date "' and time '" time "'")
-      ;; (println "Error parsing date '" date "' and time '" time "' exception " ex)
-      (t/instant))
-    )
+  ;; (try    
+  ;;   (catch Exception ex
+  ;;     (println "Error parsing date'" date "'and time'" time "'")
+  ;;     ;; (println "Error parsing date '" date "' and time '" time "' exception " ex)
+  ;;     (t/instant))
+  ;;   )
   )
 
 (defn floaty [str-float]
@@ -103,14 +102,23 @@
   column. Convert lines to the Influx Point so that it can be
   imported into an InfluxDB instance"
   [measurement-name csv-line-seq]
-  (let [column-names (map format-column-name (string/split (first csv-line-seq) #","))
-        rows (map #(string/split % #",") (drop 1 csv-line-seq))
+  (let [filtered-seq (->> csv-line-seq
+                          (filter string?)
+                          (drop-while #(string/starts-with? % "EVO-2212"))
+                         )
+        column-names (map format-column-name (string/split (string/trim (first filtered-seq)) #";"))
+        rows (map #(string/split (string/trim %) #";") (drop 1 filtered-seq))
         cells (for [row rows]
                 (into {} (map #(vector %1 (floaty %2)) column-names row)))
-        with-instant (map #(assoc % "timestamp" (to-instant (% "date")  (% "time"))) cells)
+        with-instant (map
+                      #(try
+                         (assoc % "timestamp" (to-instant (% "date")  (% "time")))
+                         (catch Exception e
+                           (println "Error parsing" %)
+                           (assoc % "timestamp" (t/instant))
+                           )) cells)
         wo-date-time (map #(dissoc % "date" "time") with-instant)
         ]
-    
     (map #(->
            (new Point measurement-name)
            (.addTag "location" "garage")
@@ -118,8 +126,8 @@
            (.addTag "load1" "garage door")
            (.addTag "load2" "PurpleAir sensor")
            (influx-point-fields (dissoc % "timestamp"))
-           (.time (% "timestamp") WritePrecision/MS))
-         wo-date-time)
+           (.time (% "timestamp") WritePrecision/MS)) wo-date-time)
+    
     ;; (map #(str measurement-name ","
     ;;            (influx-tag "location" "garage") ","
     ;;            (influx-tag "battery" "Relion RB100") ","
@@ -132,7 +140,7 @@
 
 (defn load-rig-data [& {:keys [data-dir]
                         :or {data-dir "/Users/mthomas/Dev/solar-rig-data/monthly-data"}}]
-  (let [solarrig-token "p-sgt4MZ5lQVHYThnsCD_dyUUr9Fj4hiCwc92njvrFCxvVC3aY5f9SheAxbBZtinbMzp_L7vwhFG4brwRiPajQ=="
+  (let [solarrig-token "0rxbl7LZ-NaWr_WRg7QwlLGk9gSt-DbaN55-5_zevMCp3TiqjV527HzH2FRG-wCtnEXab8vlf5cFdbYAcDFHIw=="
         url "http://localhost:8086"
         org "solar-rigs"
         bucket "samlex-evo-2012"
@@ -143,7 +151,7 @@
             write-point (fn [point] (.writePoint wtr bucket org point))]
         (doseq [csv-file data-files]
           (with-open [rdr (io/reader csv-file)]
-            (println "Loading file " csv-file " into Influx")
+            (println "Loading file" (str csv-file))
             (doseq [point (influxify measurement (line-seq rdr))]
               (write-point point))
             ))))))
@@ -156,7 +164,7 @@
   
   ;; user:solarrig
   ;; password:the usual
-  (let [solarrig-token "p-sgt4MZ5lQVHYThnsCD_dyUUr9Fj4hiCwc92njvrFCxvVC3aY5f9SheAxbBZtinbMzp_L7vwhFG4brwRiPajQ=="
+  (let [solarrig-token "0rxbl7LZ-NaWr_WRg7QwlLGk9gSt-DbaN55-5_zevMCp3TiqjV527HzH2FRG-wCtnEXab8vlf5cFdbYAcDFHIw=="
         url "http://localhost:8086"
         org "solar-rigs"
         bucket "samlex-evo-2012"
@@ -171,7 +179,7 @@
     
   
 
-  (def dir "/Users/mthomas/Dev/solar-rig-data/data")
+  (def dir "/Users/mthomas/Dev/solar-rig-data/DATALOG")
   (concat-files dir "03" "mar-2022.csv")
   (concat-files dir "02" "feb-2022.csv")
   (concat-files dir "01" "jan-2022.csv")
@@ -182,6 +190,13 @@
               "2021/10/27,04:08:18,49725,000.00,000.39,49727,000.00,000.31,<00.10,<0012,<0012,060.00,120.12,<00.10,<0012,<0012,11.141,0000.0,0000.0,0025.0,0023.0,0021.0,0018.5,0,1,00000,0,",
               "2021/10/27,04:08:19,49725,000.00,000.39,49723,000.00,000.31,<00.10,<0012,<0012,060.00,120.11,<00.10,<0012,<0012,11.141,0000.0,0000.0,0025.0,0023.0,0021.0,0018.5,0,1,00000,0,"])
 
-  (influxify "invertor-sample" (seq lines))    
+  (influxify "invertor-sample" (seq lines))
+
+  (def data-files (filter #(.isFile %) (file-seq (io/file dir))))
+  
+
+  (with-open [rdr (io/reader (first data-files))]    
+    (doall
+     (take 3 (drop-while #(string/starts-with? % "EVO-2212") (line-seq rdr)))))
   
   )
