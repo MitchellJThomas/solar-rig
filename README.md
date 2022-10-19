@@ -24,11 +24,14 @@ Date;Time;Gen status;Gen freq;Gen volt;Grid status;Grid freq;Grid volt;Input cur
 1. Ensure that Docker is installed and start an InfluxDB process
    `./influx.sh`
 
+1. Open a browser to http://127.0.0.1:8086/
+   For example on MacOS rrun `open http://127.0.0.1:8086/`
+
 1. If it is a new instance of Influx, create
    1. a user and password e.g. `solarrig`
-   1. an Influx organization
-   1. an Influx bucket for the data
-   1. a client token allowing read/write to the bucket
+   1. an Influx organization e.g. `solar-org`
+   1. an Influx bucket for the data e.g. `garage-samlex-evo-2012`
+   1. an API token allowing read/write to the bucket
 
 1. Modify the message.clj with the client api token, org
    

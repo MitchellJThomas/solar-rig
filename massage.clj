@@ -141,32 +141,36 @@
   )
 
 (defn load-rig-data [& {:keys [data-dir]
-                        :or {data-dir "/Users/mthomas/Dev/solar-rig-data/monthly-data"}}]
-  (let [solarrig-token "0rxbl7LZ-NaWr_WRg7QwlLGk9gSt-DbaN55-5_zevMCp3TiqjV527HzH2FRG-wCtnEXab8vlf5cFdbYAcDFHIw=="
+                        :or {data-dir "/Users/mitchellthomas/Dev/solar-rig-data/monthly-data"}}]
+  (let [solarrig-token "tc4PIjuVdS5mISAo1lYODjFweTZEUs4g2PQ61eEbiPyGyV_EGWGhlDTCu6fCP8hQuLcijip0EPJftYFUvc3bew=="
         url "http://localhost:8086"
-        org "solar-rigs"
-        bucket "samlex-evo-2012"
+        org "solar-org"
+        bucket "garage-samlex-evo-2012"
         measurement "inverter-sample"]
     (with-open [ic (InfluxDBClientFactory/create url (char-array solarrig-token))]
-      (let [data-files (filter #(.isFile %) (file-seq (io/file data-dir)))
-            wtr (.makeWriteApi ic)
-            write-point (fn [point] (.writePoint wtr bucket org point))]
-        (doseq [csv-file data-files]
-          (with-open [rdr (io/reader csv-file)]
-            (println "Loading file" (str csv-file))
-            (doseq [point (influxify measurement (line-seq rdr))]
-              (write-point point))
-            ))))))
+      (let [data-dir-handle (io/file data-dir)]
+        (if (.canRead data-dir-handle)
+          (let [data-files (sort (filter #(.isFile %) (file-seq data-dir-handle)))
+                wtr (.makeWriteApi ic)
+                write-point (fn [point] (.writePoint wtr bucket org point))]
+            (println "Using data-dir " (str data-dir))
+            (doseq [csv-file data-files]
+              (with-open [rdr (io/reader csv-file)]
+                (println "Loading file" (str csv-file))
+                (doseq [point (influxify measurement (line-seq rdr))]
+                  (write-point point))
+                )))
+          (println "Error: can not read from" data-dir))))))
 
 (defn main []
-  (load-rig-data "/Users/mthomas/Dev/solar-rig-data/monthly-data"))
+  (load-rig-data "/Users/mitchellthomas/Dev/solar-rig/DATALOG"))
 
 (comment
   (load-rig-data)
-  
+
   ;; user:solarrig
   ;; password:the usual
-  (let [solarrig-token "0rxbl7LZ-NaWr_WRg7QwlLGk9gSt-DbaN55-5_zevMCp3TiqjV527HzH2FRG-wCtnEXab8vlf5cFdbYAcDFHIw=="
+  (let [solarrig-token "InfluxDB API read/write token"
         url "http://localhost:8086"
         org "solar-rigs"
         bucket "samlex-evo-2012"
